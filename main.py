@@ -226,7 +226,7 @@ def run_schedule():
 @bot.message_handler(func=lambda m: m.text == "O‘quvchilar" and m.from_user.id in ADMIN_IDS)
 def show_users_list(message):markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for user in users.values():
-        markup.add(user['name'])
+    markup.add(user['name'])
     markup.add("Ortga")
     bot.send_message(message.chat.id, "Foydalanuvchilar ro‘yxati:", reply_markup=markup)
 
