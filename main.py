@@ -262,4 +262,15 @@ def get_topic_for_deadline(message):
 def set_deadline(message, topic):
     deadline = message.text
     try:
-        datetime.strptime(deadline, "%Y-%
+        datetime.strptime(deadline, "%Y-%m-%d")
+        deadlines[topic] = deadline
+        save_deadlines()
+        bot.send_message(message.chat.id, f"{topic} uchun muddat {deadline} ga belgilandi.")
+    except ValueError:
+        bot.send_message(message.chat.id, "Noto‘g‘ri sana formati. Iltimos, YYYY-MM-DD formatida kiriting.")
+
+if __name__ == "__main__":
+    # Flask serverini ishga tushurish
+    t = Thread(target=run_schedule)
+    t.start()
+    bot.polling(none_stop=True)
