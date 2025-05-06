@@ -1,4 +1,3 @@
-# Kutubxonalar
 import telebot
 from telebot import types
 import json
@@ -224,9 +223,10 @@ def run_schedule():
 
 # Admin: O‘quvchilar ro‘yxati va statistikasi
 @bot.message_handler(func=lambda m: m.text == "O‘quvchilar" and m.from_user.id in ADMIN_IDS)
-def show_users_list(message):markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+def show_users_list(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
     for user in users.values():
-    markup.add(user['name'])
+        markup.add(user['name'])
     markup.add("Ortga")
     bot.send_message(message.chat.id, "Foydalanuvchilar ro‘yxati:", reply_markup=markup)
 
@@ -254,28 +254,23 @@ def add_deadline_prompt(message):
 def get_topic_for_deadline(message):
     topic = message.text
     if not topic.startswith("Algebra") and not topic.startswith("Geometriya"):
-        return bot.send_message(message.chat.id, "Mavzu nomi xato.")
-    bot.send_message(message.chat.id, "Muddatni YYYY-MM-DD formatda kiriting:")
-    bot.register_next_step_handler(message, lambda msg: save_deadline(topic, msg))
+        bot.send_message(message.chat.id, "Mavzu nomi noto‘g‘ri. Iltimos, yana bir bor kiriting.")
+        return
+    bot.send_message(message.chat.id, "Muddatni kiriting (YYYY-MM-DD formatida):")
+    bot.register_next_step_handler(message, set_deadline, topic)
 
-def save_deadline(topic, message):
+def set_deadline(message, topic):
+    deadline = message.text
     try:
-        deadline = datetime.strptime(message.text, "%Y-%m-%d")
-        deadlines[topic] = deadline.strftime("%Y-%m-%d")
+        datetime.strptime(deadline, "%Y-%m-%d")
+        deadlines[topic] = deadline
         save_deadlines()
-        bot.send_message(message.chat.id, f"{topic} uchun muddat belgilandi: {message.text}")
-    except:
-        bot.send_message(message.chat.id, "Sana formati noto‘g‘ri.")
+        bot.send_message(message.chat.id, f"{topic} uchun muddat {deadline} ga belgilandi.")
+    except ValueError:
+        bot.send_message(message.chat.id, "Noto‘g‘ri sana formati. Iltimos, YYYY-MM-DD formatida kiriting.")
 
-# Flask server (keep alive)
-app = Flask('')
-@app.route('/')
-def home():
-    return "Bot ishlayapti!"
-def run_web():
-    app.run(host='0.0.0.0', port=8080)
-
-# Ishga tushurish
-threading.Thread(target=run_schedule, daemon=True).start()
-Thread(target=run_web).start()
-bot.infinity_polling()
+if __name__ == "__main__":
+    # Flask serverini ishga tushurish
+    t = Thread(target=run_schedule)
+    t.start()
+    bot.polling(none_stop=True)
