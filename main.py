@@ -6,8 +6,6 @@ import threading
 import schedule
 import time
 from datetime import datetime
-from flask import Flask
-from threading import Thread
 
 # Token va adminlar
 TOKEN = '8155112667:AAEy_LwzB-AEoFSlPQ4m8wUBljYCDgA1yQI'
@@ -233,44 +231,47 @@ def show_users_list(message):
 @bot.message_handler(func=lambda m: m.text in [u['name'] for u in users.values()] and m.from_user.id in ADMIN_IDS)
 def show_user_progress(message):
     uname = message.text
-    uid = next(k for k, u in users.items() if u['name'] == uname)
-    msg = f"{uname} statistikasi:\n\n"
-    for i in range(1, TOTAL_ALGEBRA+1):
-        topic = f"Algebra mavzu {i}"
-        status = "Yuborgan" if any(t for t in tasks if t['user'] == uname and t['topic'] == topic) else "Yo‘q"
-        msg += f"{topic}: {status}\n"
-    for i in range(1, TOTAL_GEOMETRIYA+1):
-        topic = f"Geometriya mavzu {i}"
-        status = "Yuborgan" if any(t for t in tasks if t['user'] == uname and t['topic'] == topic) else "Yo‘q"
-        msg += f"{topic}: {status}\n"
-    bot.send_message(message.chat.id, msg)
+    user = next(u for u in users.values() if u['name'] == uname)
+    a = user['algebra_done'] * 100 / TOTAL_ALGEBRA
+    g = user['geometriya_done'] * 100 / TOTAL_GEOMETRIYA
+    text = f"{uname} statistikasi:\n\nAlgebra: {a:.2f}%\nGeometriya: {g:.2f}%"
+    bot.send_message(message.chat.id, text)
 
-# Admin: Muddat (deadline) qo‘shish
+# Admin: Muddat qo‘shish
 @bot.message_handler(func=lambda m: m.text == "Muddat qo‘shish" and m.from_user.id in ADMIN_IDS)
-def add_deadline_prompt(message):
-    bot.send_message(message.chat.id, "Mavzuni kiriting (masalan: Algebra mavzu 1):")
-    bot.register_next_step_handler(message, get_topic_for_deadline)
+def add_deadline(message):
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    markup.add("Algebra", "Geometriya", "Ortga")
+    bot.send_message(message.chat.id, "Bo‘limni tanlang:", reply_markup=markup)
 
-def get_topic_for_deadline(message):
+@bot.message_handler(func=lambda m: m.text in ["Algebra", "Geometriya"] and m.from_user.id in ADMIN_IDS)
+def add_deadline_for_topic(message):
+    section = message.text
+    markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    count = TOTAL_ALGEBRA if section == "Algebra" else TOTAL_GEOMETRIYA
+    for i in range(1, count + 1):
+        markup.add(f"{section} mavzu {i}")
+    markup.add("Ortga")
+    bot.send_message(message.chat.id, f"{section} bo‘limidagi mavzular:", reply_markup=markup)
+
+@bot.message_handler(func=lambda m: "mavzu" in m.text and m.from_user.id in ADMIN_IDS)
+def set_deadline(message):
     topic = message.text
-    if not topic.startswith("Algebra") and not topic.startswith("Geometriya"):
-        bot.send_message(message.chat.id, "Mavzu nomi noto‘g‘ri. Iltimos, yana bir bor kiriting.")
-        return
     bot.send_message(message.chat.id, "Muddatni kiriting (YYYY-MM-DD formatida):")
-    bot.register_next_step_handler(message, set_deadline, topic)
+    bot.register_next_step_handler(message, save_deadline, topic)
 
-def set_deadline(message, topic):
+def save_deadline(message, topic):
     deadline = message.text
     try:
         datetime.strptime(deadline, "%Y-%m-%d")
         deadlines[topic] = deadline
         save_deadlines()
-        bot.send_message(message.chat.id, f"{topic} uchun muddat {deadline} ga belgilandi.")
+        bot.send_message(message.chat.id, f"{topic} mavzusi uchun muddat belgilandi.")
+        send_admin_panel(message)
     except ValueError:
-        bot.send_message(message.chat.id, "Noto‘g‘ri sana formati. Iltimos, YYYY-MM-DD formatida kiriting.")
+        bot.send_message(message.chat.id, "Noto‘g‘ri sana formatini kiritdingiz. Iltimos, qayta urinib ko‘ring.")
 
+# Asosiy threading uchun
 if __name__ == "__main__":
-    # Flask serverini ishga tushurish
-    t = Thread(target=run_schedule)
-    t.start()
+    threading.Thread(target=run_schedule).start()
     bot.polling(none_stop=True)
